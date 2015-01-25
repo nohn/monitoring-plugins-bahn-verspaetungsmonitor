@@ -1,0 +1,99 @@
+#!/usr/bin/env php
+<?php
+/**
+* Fetch the xhtml of an DB station (Deutsche Bahn) and
+* transform it into output suitable for Nagios / Icinga
+*
+* Based on Carica Status Monitor by Thomas Weinert
+* https://bitbucket.org/thomasweinert/carica-status-monitor/
+*
+* products = Trains Types to Display
+*   tailing zeros can  be skipped
+*   1 1 1 1 1 1 1 1
+*   | | | | | | | Trams
+*   | | | | | | | Metro Lines
+*   | | | | | | Ferries
+*   | | | | | Buses
+*   | | | | Commuter (S) Trains
+*   | | | Local Trains (RB + RE ...)
+*   | | Express (IR + D) Trains
+*   | InterCity (IC) Trains
+*   InterCityExpress (ICE) Trains
+*
+* So if you like only "real" trains, it's 11111, if you like all types
+*    of transport, it's 11111111, if you like only IC trains, it's 01
+*
+* @license http://www.opensource.org/licenses/mit-license.php The MIT License
+* @copyright 2012 Thomas Weinert <thomas@weinert.info>
+* @copyright 2015 Sebastian Nohn <sebastian@nohn.net>
+*/
+
+$station = $_SERVER['argv'][1];
+$products = isset($_SERVER['argv'][2]) ? $_SERVER['argv'][2] : '1111111111000000';
+
+if ($station == '') {
+  echo 'UNKNOWN: No Station ID passed. Usage: check_bahn_verspaetung Station_Name [Products]. Example: check_bahn_verspätung "Bonn Hbf" 00111000';
+  exit(3);
+}
+
+$time = new DateTime();
+
+$parameters = array(                
+  'input' => $station,
+  'inputRef' => '#',
+  'date' => $time->format('d.m.y'),
+  'time' => $time->format('Hi'),
+  'productsFilter' => $products,
+  'REQTrain_name' => '',
+  'maxJourneys' => 10,
+  'delayedJourney' => 'on',
+  'start' => 'Suchen',
+  'boardType' => 'Abfahrt',
+  'ao' => 'yes'
+);
+
+$delayWarning = empty($_GET['delay_warning']) ? 10 : (int)$_GET['delay_warning'];
+$delayError = empty($_GET['delay_error']) ? 120 : (int)$_GET['delay_error'];
+
+$url = 'http://mobile.bahn.de/bin/mobil/bhftafel.exe/dox?ld=96236&protocol=https:&rt=1&use_realtime_filter=1&';
+
+$options = array(
+                 'http'=>array(
+                               'method'=> "POST",
+                               'user_agent' => "Mozilla/5.0 (Windows NT 6.0; rv:13.0) Gecko/20100101 Firefox/13.0",
+                               'timeout' => 10.0,
+                               'content' => http_build_query($parameters),
+                               )
+                 );
+$html = @file_get_contents($url, FALSE, stream_context_create($options));
+$html = str_replace('&nbsp;', ' ', $html);
+$html = str_replace('&gt;', ' ', $html);
+
+$tidy_config = array(
+                     'output-xhtml'   => true,
+);
+
+$tidy = new tidy;
+$tidy->parseString($html);
+$tidy->parseString($html, $tidy_config, 'utf8');
+$tidy->cleanRepair();
+
+$data = simplexml_load_string($tidy);
+
+$failed = 0;
+
+foreach($data->body->div->div[1]->div as $div) {
+  if(is_object($div->div)) {
+    if (is_object($div->div->a[0])) {
+      echo utf8_decode(str_replace("\n", ' ', $div->div->a[0]->span . ' ' 
+                                   . $div->div->span[0] . ' ' 
+                                   . $div->div->span[1]));
+      if (is_object($div->div->a[1])) {
+        echo ' ' . utf8_decode(str_replace("\n", ' ' , $div->div->a[1]->span));
+      }
+      echo "\n"; 
+      $failed++;
+    }
+  }
+}
+exit($failed);
