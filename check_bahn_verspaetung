@@ -90,8 +90,10 @@ $failed = 0;
 foreach($data->body->div->div[1]->div as $div) {
   if(is_object($div->div)) {
     foreach($div->div as $div) {
+      $additional_info = str_replace("\n", ' ', $div->__toString());
       if (is_object($div->a[0])) {
         echo utf8_decode(str_replace("\n", ' ', $div->a[0]->span . ' '
+                                     . $additional_info . ' '
                                      . $div->span[0] . ' '
                                      . $div->span[1]));
         if (is_object($div->a[1])) {
