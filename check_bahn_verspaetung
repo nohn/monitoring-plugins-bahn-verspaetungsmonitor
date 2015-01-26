@@ -28,6 +28,11 @@
 * @copyright 2015 Sebastian Nohn <sebastian@nohn.net>
 */
 
+if(!extension_loaded('tidy')) {
+  echo 'UNKNOWN: ext/tidy required to run this plugin';
+  exit(3);
+}
+
 $station = $_SERVER['argv'][1];
 $products = isset($_SERVER['argv'][2]) ? $_SERVER['argv'][2] : '1111111111000000';
 
