@@ -89,15 +89,17 @@ $failed = 0;
 
 foreach($data->body->div->div[1]->div as $div) {
   if(is_object($div->div)) {
-    if (is_object($div->div->a[0])) {
-      echo utf8_decode(str_replace("\n", ' ', $div->div->a[0]->span . ' ' 
-                                   . $div->div->span[0] . ' ' 
-                                   . $div->div->span[1]));
-      if (is_object($div->div->a[1])) {
-        echo ' ' . utf8_decode(str_replace("\n", ' ' , $div->div->a[1]->span));
+    foreach($div->div as $div) {
+      if (is_object($div->a[0])) {
+        echo utf8_decode(str_replace("\n", ' ', $div->a[0]->span . ' '
+                                     . $div->span[0] . ' '
+                                     . $div->span[1]));
+        if (is_object($div->a[1])) {
+          echo ' ' . utf8_decode(str_replace("\n", ' ' , $div->a[1]->span));
+        }
+        echo "\n";
+        $failed = 2;
       }
-      echo "\n"; 
-      $failed++;
     }
   }
 }
